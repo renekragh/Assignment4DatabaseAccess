@@ -19,9 +19,15 @@ export interface Overview {
  * try/catch or with a check, and say in a comment which you chose and why.
  */
 export async function firstCourseTitle(studentId: string): Promise<string | undefined> {
-  // TODO
-  throw new Error('not implemented');
+    const student = await findStudent(studentId);
+    if (student) {
+      return ((await coursesFor(student.id)).at(0)?.title)
+    }
 }
+//  I handled a missing student by performing a check, 
+//  because the function findStudent returns a Student or undefined 
+//  The function findStudent do not throw any errors I could catch.
+
 
 // --- C2. Steps that do not depend on each other ---------------------------
 
@@ -42,13 +48,33 @@ export async function firstCourseTitle(studentId: string): Promise<string | unde
  * the difference visible, and on a real server the waiting is real.
  */
 export async function overviewSlowly(): Promise<Overview> {
-  // TODO
-  throw new Error('not implemented');
+    let overview:Overview = { students:0, courses:0, departments:0 };
+    const COUNT_STUDENTS = `SELECT pg_sleep(0.2), count(*)::int AS total FROM student`;
+    const COUNT_COURSES = `SELECT pg_sleep(0.2), count(*)::int AS total FROM course`;
+    const COUNT_DEPARTMENTS = `SELECT pg_sleep(0.2), count(*)::int AS total FROM department`;
+    const students = await pool.query<Number>(`${COUNT_STUDENTS}`);
+    const courses = await pool.query<Number>(`${COUNT_COURSES}`);
+    const departments = await pool.query<Number>(`${COUNT_DEPARTMENTS}`);
+    if (students.rows.length > 0) { overview.students = students.rows[0].valueOf()}; 
+    if (courses.rows.length > 0) { overview.courses = courses.rows[0].valueOf()}; 
+    if (departments.rows.length > 0) { overview.departments = departments.rows[0].valueOf()}; 
+    return overview;
 }
 
 export async function overview(): Promise<Overview> {
-  // TODO
-  throw new Error('not implemented');
+  let overview:Overview = { students:0, courses:0, departments:0 };
+  const COUNT_STUDENTS = `SELECT pg_sleep(0.2), count(*)::int AS total FROM student`;
+  const COUNT_COURSES = `SELECT pg_sleep(0.2), count(*)::int AS total FROM course`;
+  const COUNT_DEPARTMENTS = `SELECT pg_sleep(0.2), count(*)::int AS total FROM department`;
+  const [students, courses, departments] = await Promise.all([
+    pool.query<Number>(`${COUNT_STUDENTS}`),
+    pool.query<Number>(`${COUNT_COURSES}`),
+    pool.query<Number>(`${COUNT_DEPARTMENTS}`)
+  ]);
+  if (students.rows.length > 0) { overview.students = students.rows[0].valueOf()}; 
+  if (courses.rows.length > 0) { overview.courses = courses.rows[0].valueOf()}; 
+  if (departments.rows.length > 0) { overview.departments = departments.rows[0].valueOf()}; 
+  return overview;
 }
 
 // --- C3. The forgotten await ----------------------------------------------
@@ -71,6 +97,13 @@ export async function removeAndCheckBroken(id: string): Promise<boolean> {
 
 /** The same thing, correct: false when the student is really gone. */
 export async function removeAndCheck(id: string): Promise<boolean> {
-  // TODO
-  throw new Error('not implemented');
+  await deleteStudent(id);
+  const still = await findStudent(id);
+  return still !== undefined;
 }
+
+// 1) In function removeAndCheckBroken deleteStudent(id) is missing await
+// 2) Code execution therefore proceeds immediately to the await findStudent(id) call, 
+//    and the rest of the code is not executed until a Promise is returned.
+//    Due to the missing await in the first deleteStudent(id) call, 
+//    the deletion of the student does not occur until after the call to await findStudent(id).
